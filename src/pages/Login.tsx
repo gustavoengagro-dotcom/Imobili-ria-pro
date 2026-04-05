@@ -15,9 +15,11 @@ export const Login: React.FC = () => {
     try {
       await loginWithGoogle();
       navigate('/');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login failed:', err);
-      setError('Falha ao entrar com Google. Tente novamente.');
+      // Show more detailed error message if available
+      const errorMessage = err?.message || 'Falha ao entrar com Google. Tente novamente.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

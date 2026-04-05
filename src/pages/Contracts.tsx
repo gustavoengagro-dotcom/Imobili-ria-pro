@@ -15,7 +15,7 @@ import {
   Download,
   AlertCircle
 } from 'lucide-react';
-import { formatCurrency, formatDate, cn } from '../lib/utils';
+import { formatCurrency, formatDate, cn, isValidCpfCnpj } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../components/AuthGuard';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -54,6 +54,7 @@ export const Contracts: React.FC = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [contractToDelete, setContractToDelete] = useState<string | null>(null);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
+  const [tenantValidationError, setTenantValidationError] = useState<string | null>(null);
   const { isAdmin } = useAuth();
 
   const [newTenantData, setNewTenantData] = useState<Partial<Client>>({
@@ -203,6 +204,12 @@ export const Contracts: React.FC = () => {
   const handleQuickAddTenant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
+
+    if (newTenantData.cpfCnpj && !isValidCpfCnpj(newTenantData.cpfCnpj)) {
+      setTenantValidationError('CPF ou CNPJ inválido.');
+      return;
+    }
+    setTenantValidationError(null);
 
     try {
       const dataToSave = { ...newTenantData };
@@ -714,6 +721,12 @@ export const Contracts: React.FC = () => {
               </div>
 
               <form onSubmit={handleQuickAddTenant} className="p-6 space-y-4">
+                {tenantValidationError && (
+                  <div className="p-3 bg-red-900/20 border border-red-800 rounded-xl text-red-400 text-sm font-medium flex items-center gap-2">
+                    <X size={16} className="shrink-0" />
+                    {tenantValidationError}
+                  </div>
+                )}
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-slate-400">Nome Completo</label>
                   <input 
@@ -729,9 +742,15 @@ export const Contracts: React.FC = () => {
                     <label className="text-sm font-semibold text-slate-400">CPF / CNPJ</label>
                     <input 
                       type="text" 
-                      className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                      className={cn(
+                        "w-full p-3 bg-slate-800 border text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none",
+                        tenantValidationError && newTenantData.cpfCnpj && !isValidCpfCnpj(newTenantData.cpfCnpj) ? "border-red-600" : "border-slate-700"
+                      )}
                       value={newTenantData.cpfCnpj}
-                      onChange={(e) => setNewTenantData({ ...newTenantData, cpfCnpj: e.target.value })}
+                      onChange={(e) => {
+                        setNewTenantData({ ...newTenantData, cpfCnpj: e.target.value });
+                        if (tenantValidationError) setTenantValidationError(null);
+                      }}
                       required
                     />
                   </div>
