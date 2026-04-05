@@ -1,0 +1,101 @@
+{
+  "entities": {
+    "Property": {
+      "title": "Property",
+      "description": "A real estate property available for rent or currently rented.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["casa", "apartamento", "terreno", "comercial"], "description": "The type of property." },
+        "address": { "type": "string", "description": "Full address of the property." },
+        "street": { "type": "string", "description": "Street name." },
+        "number": { "type": "string", "description": "Property number." },
+        "complement": { "type": "string", "description": "Address complement." },
+        "neighborhood": { "type": "string", "description": "Neighborhood name." },
+        "city": { "type": "string", "description": "City name." },
+        "zipCode": { "type": "string", "description": "ZIP code." },
+        "rentValue": { "type": "number", "description": "Monthly rent value." },
+        "description": { "type": "string", "description": "Detailed description of the property." },
+        "photos": { "type": "array", "items": { "type": "string" }, "description": "List of photo URLs." },
+        "status": { "type": "string", "enum": ["disponivel", "alugado", "manutencao"], "description": "Current status of the property." },
+        "ownerId": { "type": "string", "description": "Reference to the owner client." }
+      },
+      "required": ["type", "address", "rentValue", "status", "ownerId"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "A person or company involved in the rental process (tenant or owner).",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name or company name." },
+        "cpfCnpj": { "type": "string", "description": "CPF or CNPJ document number." },
+        "rg": { "type": "string", "description": "RG document number." },
+        "phone": { "type": "string", "description": "Contact phone number." },
+        "email": { "type": "string", "description": "Contact email address." },
+        "address": { "type": "string", "description": "Client's address." },
+        "street": { "type": "string", "description": "Street name." },
+        "number": { "type": "string", "description": "Property number." },
+        "complement": { "type": "string", "description": "Address complement." },
+        "neighborhood": { "type": "string", "description": "Neighborhood name." },
+        "city": { "type": "string", "description": "City name." },
+        "zipCode": { "type": "string", "description": "ZIP code." },
+        "type": { "type": "string", "enum": ["inquilino", "proprietario"], "description": "Type of client." }
+      },
+      "required": ["name", "cpfCnpj", "type"]
+    },
+    "Contract": {
+      "title": "Contract",
+      "description": "A rental contract between a tenant and an owner for a specific property.",
+      "type": "object",
+      "properties": {
+        "propertyId": { "type": "string", "description": "Reference to the property." },
+        "tenantId": { "type": "string", "description": "Reference to the tenant client." },
+        "ownerId": { "type": "string", "description": "Reference to the owner client." },
+        "startDate": { "type": "string", "format": "date", "description": "Start date of the contract." },
+        "endDate": { "type": "string", "format": "date", "description": "End date of the contract." },
+        "monthlyValue": { "type": "number", "description": "Agreed monthly rent value." },
+        "adjustmentIndex": { "type": "string", "description": "Index for annual rent adjustment (e.g., IGPM)." },
+        "lateFee": { "type": "number", "description": "Percentage fee for late payments." },
+        "status": { "type": "string", "enum": ["ativo", "encerrado", "cancelado"], "description": "Contract status." }
+      },
+      "required": ["propertyId", "tenantId", "ownerId", "startDate", "endDate", "monthlyValue", "status"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "A payment record (rent or extra costs).",
+      "type": "object",
+      "properties": {
+        "contractId": { "type": "string", "description": "Reference to the contract (optional for extras)." },
+        "propertyId": { "type": "string", "description": "Reference to the property." },
+        "dueDate": { "type": "string", "format": "date", "description": "Payment due date." },
+        "paymentDate": { "type": "string", "format": "date", "description": "Actual payment date." },
+        "amount": { "type": "number", "description": "Amount paid." },
+        "status": { "type": "string", "enum": ["pago", "pendente", "atrasado"], "description": "Payment status." },
+        "type": { "type": "string", "enum": ["aluguel", "extra"], "description": "Type of payment." },
+        "description": { "type": "string", "description": "Description for extra payments." },
+        "photoUrl": { "type": "string", "description": "URL of the receipt photo." },
+        "previousReading": { "type": "number", "description": "Previous meter reading for energy." },
+        "currentReading": { "type": "number", "description": "Current meter reading for energy." },
+        "valuePerKwh": { "type": "number", "description": "Value per kWh for energy." }
+      },
+      "required": ["propertyId", "dueDate", "amount", "status", "type"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile for authentication and permissions.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "description": "User email." },
+        "role": { "type": "string", "enum": ["admin", "user"], "description": "User role." },
+        "displayName": { "type": "string", "description": "User display name." }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/properties/{propertyId}": { "schema": "Property", "description": "Collection of properties." },
+    "/clients/{clientId}": { "schema": "Client", "description": "Collection of clients." },
+    "/contracts/{contractId}": { "schema": "Contract", "description": "Collection of contracts." },
+    "/payments/{paymentId}": { "schema": "Payment", "description": "Collection of payments." },
+    "/users/{userId}": { "schema": "UserProfile", "description": "Collection of user profiles." }
+  }
+}
