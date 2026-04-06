@@ -15,12 +15,16 @@ import {
   UserCheck,
   UserPlus,
   ArrowRight,
-  MapPin
+  MapPin,
+  RefreshCw,
+  ExternalLink,
+  CreditCard
 } from 'lucide-react';
 import { cn, isValidCpfCnpj } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../components/AuthGuard';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { asaasService } from '../services/asaasService';
 
 export const Clients: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -32,6 +36,8 @@ export const Clients: React.FC = () => {
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [syncingClientId, setSyncingClientId] = useState<string | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
   const { isAdmin } = useAuth();
 
   const [formData, setFormData] = useState<Partial<Client>>({
@@ -133,6 +139,41 @@ export const Clients: React.FC = () => {
     }
   };
 
+  const handleTestConnection = async () => {
+    if (!isAdmin) return;
+    setIsTestingConnection(true);
+    try {
+      const result = await asaasService.testConnection();
+      if (result.status === 'ok') {
+        alert(`Conexão com Asaas estabelecida com sucesso!\nConta: ${result.name}`);
+      }
+    } catch (err: any) {
+      console.error('Error testing Asaas connection:', err);
+      const errorMsg = err.response?.data?.errors?.[0]?.description || err.response?.data?.error || err.message;
+      alert(`Erro ao conectar com Asaas: ${errorMsg}`);
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  const handleSyncAsaas = async (client: Client) => {
+    if (!isAdmin) return;
+    setSyncingClientId(client.id);
+    try {
+      const asaasCustomer = await asaasService.createCustomer(client);
+      if (asaasCustomer && asaasCustomer.id) {
+        await updateDoc(doc(db, 'clients', client.id), {
+          asaasCustomerId: asaasCustomer.id
+        });
+      }
+    } catch (err: any) {
+      console.error('Error syncing with Asaas:', err);
+      // You might want to show a toast or error message here
+    } finally {
+      setSyncingClientId(null);
+    }
+  };
+
   const filteredClients = clients.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          c.cpfCnpj.includes(searchTerm);
@@ -147,32 +188,44 @@ export const Clients: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-100">Clientes</h1>
           <p className="text-slate-400">Gerencie inquilinos e proprietários</p>
         </div>
-        {isAdmin && (
-          <button 
-            onClick={() => {
-              setEditingClient(null);
-              setFormData({ 
-                name: '', 
-                cpfCnpj: '', 
-                rg: '',
-                phone: '', 
-                email: '', 
-                zipCode: '',
-                city: '',
-                street: '',
-                number: '',
-                complement: '',
-                neighborhood: '',
-                type: 'inquilino' 
-              });
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-900/20"
-          >
-            <Plus size={20} />
-            Novo Cliente
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <button 
+              onClick={handleTestConnection}
+              disabled={isTestingConnection}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all font-semibold border border-slate-700"
+            >
+              <RefreshCw size={20} className={cn(isTestingConnection && "animate-spin")} />
+              <span className="hidden sm:inline">Testar Conexão</span>
+            </button>
+          )}
+          {isAdmin && (
+            <button 
+              onClick={() => {
+                setEditingClient(null);
+                setFormData({ 
+                  name: '', 
+                  cpfCnpj: '', 
+                  rg: '',
+                  phone: '', 
+                  email: '', 
+                  zipCode: '',
+                  city: '',
+                  street: '',
+                  number: '',
+                  complement: '',
+                  neighborhood: '',
+                  type: 'inquilino' 
+                });
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-900/20"
+            >
+              <Plus size={20} />
+              Novo Cliente
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
@@ -290,16 +343,36 @@ export const Clients: React.FC = () => {
             </div>
 
             <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between">
-              <span className={cn(
-                "text-xs font-bold uppercase tracking-widest",
-                client.type === 'inquilino' ? "text-blue-400" : "text-green-400"
-              )}>
-                {client.type}
-              </span>
-              <button className="text-blue-500 hover:text-blue-400 text-sm font-semibold flex items-center gap-1">
-                Ver Detalhes
-                <ArrowRight size={14} />
-              </button>
+              <div className="flex flex-col">
+                <span className={cn(
+                  "text-xs font-bold uppercase tracking-widest",
+                  client.type === 'inquilino' ? "text-blue-400" : "text-green-400"
+                )}>
+                  {client.type}
+                </span>
+                {client.asaasCustomerId && (
+                  <span className="text-[10px] text-slate-500 font-mono mt-1">ASAAS: {client.asaasCustomerId}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {isAdmin && !client.asaasCustomerId && (
+                  <button 
+                    onClick={() => handleSyncAsaas(client)}
+                    disabled={syncingClientId === client.id}
+                    className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
+                    title="Sincronizar com Asaas"
+                  >
+                    <RefreshCw size={14} className={cn(syncingClientId === client.id && "animate-spin")} />
+                    {syncingClientId === client.id ? 'Sincronizando...' : 'Vincular Asaas'}
+                  </button>
+                )}
+                {client.asaasCustomerId && (
+                  <div className="flex items-center gap-1 text-green-500 text-xs font-bold">
+                    <CreditCard size={14} />
+                    Vinculado
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
         ))}

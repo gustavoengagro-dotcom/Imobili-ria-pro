@@ -37,6 +37,15 @@ export interface Client {
   complement?: string;
   neighborhood?: string;
   type: ClientType;
+  asaasCustomerId?: string;
+}
+
+export interface InspectionItem {
+  id: string;
+  room: string;
+  condition: string;
+  notes?: string;
+  photos: string[];
 }
 
 export interface Contract {
@@ -51,6 +60,7 @@ export interface Contract {
   lateFee?: number;
   status: ContractStatus;
   clauses?: string[];
+  inspection?: InspectionItem[];
 }
 
 export type PaymentType = 'aluguel' | 'extra';
@@ -70,6 +80,12 @@ export interface Payment {
   previousReading?: number;
   currentReading?: number;
   valuePerKwh?: number;
+  // Asaas fields
+  asaasPaymentId?: string;
+  asaasInvoiceUrl?: string;
+  asaasBoletoUrl?: string;
+  asaasBarCode?: string;
+  asaasPixQrCode?: string;
 }
 
 export interface UserProfile {

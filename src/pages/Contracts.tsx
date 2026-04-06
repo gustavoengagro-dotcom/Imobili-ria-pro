@@ -13,9 +13,12 @@ import {
   X, 
   Save,
   Download,
-  AlertCircle
+  AlertCircle,
+  ClipboardCheck,
+  Camera,
+  Trash
 } from 'lucide-react';
-import { formatCurrency, formatDate, cn, isValidCpfCnpj } from '../lib/utils';
+import { formatCurrency, formatDate, cn, isValidCpfCnpj, toBase64 } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../components/AuthGuard';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -76,8 +79,11 @@ export const Contracts: React.FC = () => {
     adjustmentIndex: 'IGPM',
     lateFee: 10,
     status: 'ativo',
-    clauses: DEFAULT_CLAUSES
+    clauses: DEFAULT_CLAUSES,
+    inspection: []
   });
+
+  const [activeTab, setActiveTab] = useState<'dados' | 'clausulas' | 'vistoria'>('dados');
 
   useEffect(() => {
     const unsubContracts = onSnapshot(collection(db, 'contracts'), (s) => {
@@ -168,8 +174,10 @@ export const Contracts: React.FC = () => {
         adjustmentIndex: 'IGPM', 
         lateFee: 10, 
         status: 'ativo',
-        clauses: DEFAULT_CLAUSES
+        clauses: DEFAULT_CLAUSES,
+        inspection: []
       });
+      setActiveTab('dados');
     } catch (err) {
       handleFirestoreError(err, editingContract ? OperationType.UPDATE : OperationType.CREATE, 'contracts');
     }
@@ -320,6 +328,56 @@ export const Contracts: React.FC = () => {
     addText(tenant?.name || '____________________', 11, false, 'center');
     addText(`CPF: ${tenant?.cpfCnpj || '____________________'}`, 10, false, 'center');
 
+    // Inspection Report (Annex)
+    if (contract.inspection && contract.inspection.length > 0) {
+      doc.addPage();
+      y = 20;
+      addText('ANEXO I - TERMO DE VISTORIA DO IMÓVEL', 14, true, 'center');
+      y += 10;
+      addText(`Imóvel: ${property?.address || 'N/A'}`);
+      addText(`Data da Vistoria: ${formatDate(new Date().toISOString())}`);
+      y += 5;
+
+      contract.inspection.forEach((item, index) => {
+        if (y > 250) { doc.addPage(); y = 20; }
+        addText(`${index + 1}. ${item.room}`, 11, true);
+        addText(`Estado: ${item.condition}`);
+        if (item.notes) addText(`Observações: ${item.notes}`);
+        
+        if (item.photos && item.photos.length > 0) {
+          y += 2;
+          let xOffset = margin;
+          const imgSize = 40;
+          
+          item.photos.forEach((photo) => {
+            if (xOffset + imgSize > pageWidth - margin) {
+              xOffset = margin;
+              y += imgSize + 5;
+            }
+            if (y + imgSize > 280) {
+              doc.addPage();
+              y = 20;
+              xOffset = margin;
+            }
+            try {
+              doc.addImage(photo, 'JPEG', xOffset, y, imgSize, imgSize);
+              xOffset += imgSize + 5;
+            } catch (e) {
+              console.error("Error adding image to PDF", e);
+            }
+          });
+          y += imgSize + 10;
+        } else {
+          y += 5;
+        }
+      });
+
+      y += 20;
+      if (y > 260) { doc.addPage(); y = 20; }
+      addText('____________________________________', 11, false, 'center');
+      addText('Assinatura do Locatário', 10, false, 'center');
+    }
+
     doc.save(`contrato_${contract.id.slice(0, 8)}.pdf`);
   };
 
@@ -357,8 +415,10 @@ export const Contracts: React.FC = () => {
                 adjustmentIndex: 'IGPM', 
                 lateFee: 10, 
                 status: 'ativo',
-                clauses: DEFAULT_CLAUSES
+                clauses: DEFAULT_CLAUSES,
+                inspection: []
               });
+              setActiveTab('dados');
               setIsModalOpen(true);
             }}
             className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-900/20"
@@ -454,8 +514,10 @@ export const Contracts: React.FC = () => {
                                 setEditingContract(contract);
                                 setFormData({
                                   ...contract,
-                                  clauses: contract.clauses || DEFAULT_CLAUSES
+                                  clauses: contract.clauses || DEFAULT_CLAUSES,
+                                  inspection: contract.inspection || []
                                 });
+                                setActiveTab('dados');
                                 setIsModalOpen(true);
                               }}
                               className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors"
@@ -504,162 +566,343 @@ export const Contracts: React.FC = () => {
                 </button>
               </div>
 
-              <form id="contract-form" onSubmit={handleSave} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-400">Imóvel</label>
-                    <select 
-                      className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={formData.propertyId}
-                      onChange={(e) => {
-                        const prop = properties.find(p => p.id === e.target.value);
-                        setFormData({ ...formData, propertyId: e.target.value, ownerId: prop?.ownerId || '', monthlyValue: prop?.rentValue || 0 });
-                      }}
-                      required
-                    >
-                      <option value="">Selecione um imóvel</option>
-                      {availableProperties.map(prop => (
-                        <option key={prop.id} value={prop.id}>{prop.address} ({formatCurrency(prop.rentValue)})</option>
-                      ))}
-                    </select>
+              <div className="flex border-b border-slate-800 bg-slate-800/30">
+                <button
+                  onClick={() => setActiveTab('dados')}
+                  className={cn(
+                    "flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors",
+                    activeTab === 'dados' ? "text-blue-400 border-b-2 border-blue-400 bg-blue-400/5" : "text-slate-500 hover:text-slate-300"
+                  )}
+                >
+                  Dados Básicos
+                </button>
+                <button
+                  onClick={() => setActiveTab('clausulas')}
+                  className={cn(
+                    "flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors",
+                    activeTab === 'clausulas' ? "text-blue-400 border-b-2 border-blue-400 bg-blue-400/5" : "text-slate-500 hover:text-slate-300"
+                  )}
+                >
+                  Cláusulas
+                </button>
+                <button
+                  onClick={() => setActiveTab('vistoria')}
+                  className={cn(
+                    "flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors",
+                    activeTab === 'vistoria' ? "text-blue-400 border-b-2 border-blue-400 bg-blue-400/5" : "text-slate-500 hover:text-slate-300"
+                  )}
+                >
+                  Vistoria
+                </button>
+              </div>
+
+              <form id="contract-form" onSubmit={handleSave} className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+                {activeTab === 'dados' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-400">Imóvel</label>
+                        <select 
+                          className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={formData.propertyId}
+                          onChange={(e) => {
+                            const prop = properties.find(p => p.id === e.target.value);
+                            setFormData({ ...formData, propertyId: e.target.value, ownerId: prop?.ownerId || '', monthlyValue: prop?.rentValue || 0 });
+                          }}
+                          required
+                        >
+                          <option value="">Selecione um imóvel</option>
+                          {availableProperties.map(prop => (
+                            <option key={prop.id} value={prop.id}>{prop.address} ({formatCurrency(prop.rentValue)})</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-400 flex justify-between">
+                          <span>Inquilino</span>
+                          <button 
+                            type="button"
+                            onClick={() => setIsTenantModalOpen(true)}
+                            className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1"
+                          >
+                            <Plus size={12} />
+                            Novo Inquilino
+                          </button>
+                        </label>
+                        <select 
+                          className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={formData.tenantId}
+                          onChange={(e) => setFormData({ ...formData, tenantId: e.target.value })}
+                          required
+                        >
+                          <option value="">Selecione um inquilino</option>
+                          {tenants.map(tenant => (
+                            <option key={tenant.id} value={tenant.id}>{tenant.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-400">Data de Início</label>
+                        <input 
+                          type="date" 
+                          className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={formData.startDate}
+                          onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-400">Data de Término</label>
+                        <input 
+                          type="date" 
+                          className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={formData.endDate}
+                          onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-400">Valor Mensal (R$)</label>
+                        <input 
+                          type="number" 
+                          className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={formData.monthlyValue}
+                          onChange={(e) => setFormData({ ...formData, monthlyValue: Number(e.target.value) })}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-400">Índice Reajuste</label>
+                        <input 
+                          type="text" 
+                          className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={formData.adjustmentIndex}
+                          onChange={(e) => setFormData({ ...formData, adjustmentIndex: e.target.value })}
+                          placeholder="Ex: IGPM"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-400">Multa Atraso (%)</label>
+                        <input 
+                          type="number" 
+                          className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={formData.lateFee}
+                          onChange={(e) => setFormData({ ...formData, lateFee: Number(e.target.value) })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-400">Status do Contrato</label>
+                      <select 
+                        className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value as ContractStatus })}
+                        required
+                      >
+                        <option value="ativo">Ativo</option>
+                        <option value="encerrado">Encerrado</option>
+                        <option value="cancelado">Cancelado</option>
+                      </select>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-400 flex justify-between">
-                      <span>Inquilino</span>
+                )}
+
+                {activeTab === 'clausulas' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-slate-100">Cláusulas do Contrato</h3>
                       <button 
                         type="button"
-                        onClick={() => setIsTenantModalOpen(true)}
-                        className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1"
+                        onClick={() => setFormData({ ...formData, clauses: [...(formData.clauses || []), ''] })}
+                        className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-400 font-semibold"
                       >
-                        <Plus size={12} />
-                        Novo Inquilino
+                        <Plus size={16} />
+                        Adicionar Cláusula
                       </button>
-                    </label>
-                    <select 
-                      className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={formData.tenantId}
-                      onChange={(e) => setFormData({ ...formData, tenantId: e.target.value })}
-                      required
-                    >
-                      <option value="">Selecione um inquilino</option>
-                      {tenants.map(tenant => (
-                        <option key={tenant.id} value={tenant.id}>{tenant.name}</option>
+                    </div>
+                    <p className="text-xs text-slate-500 italic">
+                      Use placeholders: {'{ADDRESS}'}, {'{DESCRIPTION}'}, {'{START_DATE}'}, {'{END_DATE}'}, {'{MONTHLY_VALUE}'}, {'{ADJUSTMENT_INDEX}'}, {'{OWNER_CPF}'}, {'{OWNER_NAME}'}, {'{LATE_FEE}'}
+                    </p>
+                    <div className="space-y-4">
+                      {(formData.clauses || []).map((clause, index) => (
+                        <div key={index} className="relative group">
+                          <textarea 
+                            className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] text-sm"
+                            value={clause}
+                            onChange={(e) => {
+                              const newClauses = [...(formData.clauses || [])];
+                              newClauses[index] = e.target.value;
+                              setFormData({ ...formData, clauses: newClauses });
+                            }}
+                            placeholder={`Cláusula ${index + 1}`}
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const newClauses = (formData.clauses || []).filter((_, i) => i !== index);
+                              setFormData({ ...formData, clauses: newClauses });
+                            }}
+                            className="absolute -top-2 -right-2 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
                       ))}
-                    </select>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-400">Data de Início</label>
-                    <input 
-                      type="date" 
-                      className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-400">Data de Término</label>
-                    <input 
-                      type="date" 
-                      className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
+                {activeTab === 'vistoria' && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-slate-100">Vistoria do Imóvel</h3>
+                      <button 
+                        type="button"
+                        onClick={() => setFormData({ 
+                          ...formData, 
+                          inspection: [
+                            ...(formData.inspection || []), 
+                            { id: crypto.randomUUID(), room: '', condition: 'Bom', notes: '', photos: [] }
+                          ] 
+                        })}
+                        className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-400 font-semibold"
+                      >
+                        <Plus size={16} />
+                        Adicionar Item
+                      </button>
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-400">Valor Mensal (R$)</label>
-                    <input 
-                      type="number" 
-                      className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={formData.monthlyValue}
-                      onChange={(e) => setFormData({ ...formData, monthlyValue: Number(e.target.value) })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-400">Índice Reajuste</label>
-                    <input 
-                      type="text" 
-                      className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={formData.adjustmentIndex}
-                      onChange={(e) => setFormData({ ...formData, adjustmentIndex: e.target.value })}
-                      placeholder="Ex: IGPM"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-400">Multa Atraso (%)</label>
-                    <input 
-                      type="number" 
-                      className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={formData.lateFee}
-                      onChange={(e) => setFormData({ ...formData, lateFee: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
+                    <div className="space-y-6">
+                      {(formData.inspection || []).map((item, index) => (
+                        <div key={item.id} className="p-4 bg-slate-800/50 border border-slate-700 rounded-2xl space-y-4 relative group">
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const newInspection = (formData.inspection || []).filter((_, i) => i !== index);
+                              setFormData({ ...formData, inspection: newInspection });
+                            }}
+                            className="absolute -top-2 -right-2 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10"
+                          >
+                            <Trash size={14} />
+                          </button>
 
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-slate-400">Status do Contrato</label>
-                  <select 
-                    className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as ContractStatus })}
-                    required
-                  >
-                    <option value="ativo">Ativo</option>
-                    <option value="encerrado">Encerrado</option>
-                    <option value="cancelado">Cancelado</option>
-                  </select>
-                </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold text-slate-500 uppercase">Cômodo / Área</label>
+                              <input 
+                                type="text" 
+                                className="w-full p-2 bg-slate-900 border border-slate-700 text-slate-100 rounded-lg outline-none focus:ring-1 focus:ring-blue-500"
+                                value={item.room}
+                                onChange={(e) => {
+                                  const newInspection = [...(formData.inspection || [])];
+                                  newInspection[index] = { ...item, room: e.target.value };
+                                  setFormData({ ...formData, inspection: newInspection });
+                                }}
+                                placeholder="Ex: Sala, Cozinha, Quarto 1..."
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold text-slate-500 uppercase">Estado de Conservação</label>
+                              <select 
+                                className="w-full p-2 bg-slate-900 border border-slate-700 text-slate-100 rounded-lg outline-none focus:ring-1 focus:ring-blue-500"
+                                value={item.condition}
+                                onChange={(e) => {
+                                  const newInspection = [...(formData.inspection || [])];
+                                  newInspection[index] = { ...item, condition: e.target.value };
+                                  setFormData({ ...formData, inspection: newInspection });
+                                }}
+                              >
+                                <option value="Novo">Novo</option>
+                                <option value="Bom">Bom</option>
+                                <option value="Regular">Regular</option>
+                                <option value="Ruim">Ruim</option>
+                                <option value="Precisa de Reparo">Precisa de Reparo</option>
+                              </select>
+                            </div>
+                          </div>
 
-                <div className="space-y-4 pt-4 border-t border-slate-800">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-slate-100">Cláusulas do Contrato</h3>
-                    <button 
-                      type="button"
-                      onClick={() => setFormData({ ...formData, clauses: [...(formData.clauses || []), ''] })}
-                      className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-400 font-semibold"
-                    >
-                      <Plus size={16} />
-                      Adicionar Cláusula
-                    </button>
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500 uppercase">Observações</label>
+                            <textarea 
+                              className="w-full p-2 bg-slate-900 border border-slate-700 text-slate-100 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 min-h-[60px]"
+                              value={item.notes}
+                              onChange={(e) => {
+                                const newInspection = [...(formData.inspection || [])];
+                                newInspection[index] = { ...item, notes: e.target.value };
+                                setFormData({ ...formData, inspection: newInspection });
+                              }}
+                              placeholder="Detalhes sobre pintura, furos, manchas, etc..."
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase">Fotos da Vistoria</label>
+                            <div className="flex flex-wrap gap-2">
+                              {item.photos.map((photo, photoIndex) => (
+                                <div key={photoIndex} className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-700">
+                                  <img src={photo} alt="Vistoria" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      const newPhotos = item.photos.filter((_, i) => i !== photoIndex);
+                                      const newInspection = [...(formData.inspection || [])];
+                                      newInspection[index] = { ...item, photos: newPhotos };
+                                      setFormData({ ...formData, inspection: newInspection });
+                                    }}
+                                    className="absolute top-0.5 right-0.5 p-0.5 bg-red-600 text-white rounded-full"
+                                  >
+                                    <X size={10} />
+                                  </button>
+                                </div>
+                              ))}
+                              <label className="w-20 h-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-700 rounded-lg hover:border-blue-500 hover:bg-blue-900/10 cursor-pointer transition-all">
+                                <input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept="image/*"
+                                  multiple
+                                  onChange={async (e) => {
+                                    const files = Array.from(e.target.files || []);
+                                    const base64s = await Promise.all(files.map(f => toBase64(f)));
+                                    const newInspection = [...(formData.inspection || [])];
+                                    newInspection[index] = { ...item, photos: [...item.photos, ...base64s] };
+                                    setFormData({ ...formData, inspection: newInspection });
+                                  }}
+                                />
+                                <Camera size={20} className="text-slate-500" />
+                                <span className="text-[10px] text-slate-500 mt-1">Add</span>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {(formData.inspection || []).length === 0 && (
+                        <div className="text-center py-12 bg-slate-800/20 border-2 border-dashed border-slate-800 rounded-2xl">
+                          <ClipboardCheck size={48} className="mx-auto text-slate-700 mb-4" />
+                          <p className="text-slate-500">Nenhum item de vistoria adicionado.</p>
+                          <button 
+                            type="button"
+                            onClick={() => setFormData({ 
+                              ...formData, 
+                              inspection: [{ id: crypto.randomUUID(), room: '', condition: 'Bom', notes: '', photos: [] }] 
+                            })}
+                            className="mt-4 text-blue-500 hover:underline text-sm font-bold"
+                          >
+                            Começar Vistoria
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-500 italic">
-                    Use placeholders: {'{ADDRESS}'}, {'{DESCRIPTION}'}, {'{START_DATE}'}, {'{END_DATE}'}, {'{MONTHLY_VALUE}'}, {'{ADJUSTMENT_INDEX}'}, {'{OWNER_CPF}'}, {'{OWNER_NAME}'}, {'{LATE_FEE}'}
-                  </p>
-                  <div className="space-y-4">
-                    {(formData.clauses || []).map((clause, index) => (
-                      <div key={index} className="relative group">
-                        <textarea 
-                          className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] text-sm"
-                          value={clause}
-                          onChange={(e) => {
-                            const newClauses = [...(formData.clauses || [])];
-                            newClauses[index] = e.target.value;
-                            setFormData({ ...formData, clauses: newClauses });
-                          }}
-                          placeholder={`Cláusula ${index + 1}`}
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const newClauses = (formData.clauses || []).filter((_, i) => i !== index);
-                            setFormData({ ...formData, clauses: newClauses });
-                          }}
-                          className="absolute -top-2 -right-2 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                )}
               </form>
 
               <div className="p-6 border-t border-slate-800 flex gap-3">

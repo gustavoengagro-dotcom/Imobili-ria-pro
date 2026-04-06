@@ -22,13 +22,19 @@ import {
   Camera,
   ChevronDown,
   ChevronUp,
-  FileText
+  FileText,
+  Download,
+  Zap,
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
 import { formatCurrency, formatDate, cn, toBase64 } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../components/AuthGuard';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { TenantStatementModal } from '../components/TenantStatementModal';
+import { BoletoModal } from '../components/BoletoModal';
+import { asaasService } from '../services/asaasService';
 
 export const Payments: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -44,11 +50,30 @@ export const Payments: React.FC = () => {
   const [isClearPendingConfirmOpen, setIsClearPendingConfirmOpen] = useState(false);
   const [isDeleteAllPendingConfirmOpen, setIsDeleteAllPendingConfirmOpen] = useState(false);
   const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
+  const [isBoletoModalOpen, setIsBoletoModalOpen] = useState(false);
+  const [selectedPaymentForBoleto, setSelectedPaymentForBoleto] = useState<Payment | null>(null);
   const [selectedPropertyForStatement, setSelectedPropertyForStatement] = useState<Property | null>(null);
+  const [syncingPaymentId, setSyncingPaymentId] = useState<string | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [expandedProperties, setExpandedProperties] = useState<Record<string, boolean>>({});
   const { isAdmin } = useAuth();
+
+  const getSuggestedDueDate = (contract: Contract) => {
+    const today = new Date();
+    const startDate = new Date(contract.startDate);
+    const day = startDate.getDate();
+    
+    // Create a date for the current month/year with the same day
+    // Handle cases where the day doesn't exist in the current month (e.g., 31st)
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const actualDay = Math.min(day, lastDayOfMonth);
+    
+    const suggested = new Date(year, month, actualDay);
+    return suggested.toISOString().split('T')[0];
+  };
 
   const [formData, setFormData] = useState<Partial<Payment>>({
     contractId: '',
@@ -73,6 +98,22 @@ export const Payments: React.FC = () => {
       }
     }
   }, [formData.previousReading, formData.currentReading, formData.valuePerKwh, formData.type, formData.description]);
+
+  // Auto-select contract if property is selected and has only one active contract
+  useEffect(() => {
+    if (formData.type === 'aluguel' && formData.propertyId && !formData.contractId && !editingPayment) {
+      const propertyContracts = contracts.filter(c => c.propertyId === formData.propertyId && c.status === 'ativo');
+      if (propertyContracts.length === 1) {
+        const contract = propertyContracts[0];
+        setFormData(prev => ({
+          ...prev,
+          contractId: contract.id,
+          amount: contract.monthlyValue,
+          dueDate: prev.dueDate || getSuggestedDueDate(contract)
+        }));
+      }
+    }
+  }, [formData.propertyId, formData.type, contracts, editingPayment]);
 
   useEffect(() => {
     const unsubPayments = onSnapshot(collection(db, 'payments'), (s) => {
@@ -248,6 +289,84 @@ export const Payments: React.FC = () => {
     }
   };
 
+  const handleGenerateMonthlyPayments = async () => {
+    if (!isAdmin) return;
+    try {
+      const batch = writeBatch(db);
+      const today = new Date();
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      
+      let count = 0;
+      
+      contracts.filter(c => c.status === 'ativo').forEach(contract => {
+        const alreadyExists = payments.some(p => 
+          p.contractId === contract.id && 
+          p.type === 'aluguel' &&
+          new Date(p.dueDate).getMonth() === currentMonth &&
+          new Date(p.dueDate).getFullYear() === currentYear
+        );
+        
+        if (!alreadyExists) {
+          const dueDate = getSuggestedDueDate(contract);
+          const paymentRef = doc(collection(db, 'payments'));
+          batch.set(paymentRef, {
+            contractId: contract.id,
+            propertyId: contract.propertyId,
+            dueDate: dueDate,
+            amount: contract.monthlyValue,
+            status: 'pendente',
+            type: 'aluguel',
+            createdAt: new Date().toISOString()
+          });
+          count++;
+        }
+      });
+      
+      if (count > 0) {
+        await batch.commit();
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'payments/bulk');
+    }
+  };
+
+  const handleGenerateAsaasPayment = async (payment: Payment) => {
+    if (!isAdmin) return;
+    
+    const contract = contracts.find(c => c.id === payment.contractId);
+    const tenantId = contract?.tenantId;
+    const tenant = clients.find(c => c.id === tenantId);
+    
+    if (!tenant) {
+      alert('Inquilino não encontrado para este contrato.');
+      return;
+    }
+    
+    if (!tenant.asaasCustomerId) {
+      alert('O inquilino precisa estar vinculado ao Asaas primeiro. Vá na página de Clientes e clique em "Vincular Asaas".');
+      return;
+    }
+    
+    setSyncingPaymentId(payment.id);
+    try {
+      const asaasPayment = await asaasService.createPayment(payment, tenant.asaasCustomerId);
+      if (asaasPayment && asaasPayment.id) {
+        await updateDoc(doc(db, 'payments', payment.id), {
+          asaasPaymentId: asaasPayment.id,
+          asaasInvoiceUrl: asaasPayment.invoiceUrl,
+          asaasBoletoUrl: asaasPayment.bankSlipUrl,
+          asaasBarCode: asaasPayment.identificationField
+        });
+      }
+    } catch (err: any) {
+      console.error('Error creating Asaas payment:', err);
+      alert('Erro ao gerar pagamento no Asaas: ' + (err.response?.data?.errors?.[0]?.description || err.message));
+    } finally {
+      setSyncingPaymentId(null);
+    }
+  };
+
   const toggleProperty = (propertyId: string) => {
     setExpandedProperties(prev => ({
       ...prev,
@@ -274,21 +393,33 @@ export const Payments: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-100">Financeiro</h1>
-          <p className="text-slate-400">Controle de pagamentos por imóvel</p>
+          <p className="text-sm text-slate-400">Controle de pagamentos por imóvel</p>
         </div>
-        {isAdmin && (
-          <button 
-            onClick={() => {
-              setEditingPayment(null);
-              resetForm();
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-900/20"
-          >
-            <Plus size={20} />
-            Lançar Pagamento
-          </button>
-        )}
+        <div className="flex flex-wrap gap-3">
+          {isAdmin && (
+            <button 
+              onClick={handleGenerateMonthlyPayments}
+              className="flex items-center gap-2 bg-slate-800 text-blue-400 border border-blue-900/30 px-4 py-3 rounded-xl font-semibold hover:bg-slate-700 transition-colors"
+              title="Gerar mensalidades de todos os contratos ativos para o mês atual"
+            >
+              <Zap size={20} />
+              Gerar Mensalidades
+            </button>
+          )}
+          {isAdmin && (
+            <button 
+              onClick={() => {
+                setEditingPayment(null);
+                resetForm();
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-900/20"
+            >
+              <Plus size={20} />
+              Lançar Pagamento
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -503,6 +634,39 @@ export const Payments: React.FC = () => {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                   <div className="flex items-center justify-end gap-1">
+                                    {payment.status !== 'pago' && (
+                                      <button 
+                                        onClick={() => {
+                                          setSelectedPaymentForBoleto(payment);
+                                          setIsBoletoModalOpen(true);
+                                        }}
+                                        className="p-1.5 text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors"
+                                        title="Gerar Recibo / PIX"
+                                      >
+                                        <Download size={16} />
+                                      </button>
+                                    )}
+                                    {payment.status !== 'pago' && isAdmin && !payment.asaasPaymentId && (
+                                      <button 
+                                        onClick={() => handleGenerateAsaasPayment(payment)}
+                                        disabled={syncingPaymentId === payment.id}
+                                        className="p-1.5 text-purple-400 hover:bg-purple-900/20 rounded-lg transition-colors"
+                                        title="Gerar Cobrança no Asaas"
+                                      >
+                                        <RefreshCw size={16} className={cn(syncingPaymentId === payment.id && "animate-spin")} />
+                                      </button>
+                                    )}
+                                    {payment.asaasInvoiceUrl && (
+                                      <a 
+                                        href={payment.asaasInvoiceUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="p-1.5 text-green-400 hover:bg-green-900/20 rounded-lg transition-colors"
+                                        title="Ver Fatura Asaas"
+                                      >
+                                        <ExternalLink size={16} />
+                                      </a>
+                                    )}
                                     {payment.status !== 'pago' && isAdmin && (
                                       <button 
                                         onClick={() => handleMarkAsPaid(payment)}
@@ -610,52 +774,93 @@ export const Payments: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-400">Imóvel</label>
-                    <select 
-                      className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={formData.propertyId}
-                      onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
-                      required
-                    >
-                      <option value="">Selecione um imóvel</option>
-                      {properties.map(p => (
-                        <option key={p.id} value={p.id}>{p.address}</option>
-                      ))}
-                    </select>
-                  </div>
+                  
+                  {formData.type === 'aluguel' ? (
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-400">Contrato</label>
+                      <select 
+                        className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={formData.contractId}
+                        onChange={(e) => {
+                          const contract = contracts.find(c => c.id === e.target.value);
+                          if (contract) {
+                            setFormData({ 
+                              ...formData, 
+                              contractId: e.target.value, 
+                              amount: contract.monthlyValue,
+                              propertyId: contract.propertyId,
+                              dueDate: formData.dueDate || getSuggestedDueDate(contract)
+                            });
+                          } else {
+                            setFormData({ ...formData, contractId: '' });
+                          }
+                        }}
+                        required={formData.type === 'aluguel'}
+                      >
+                        <option value="">Selecione um contrato</option>
+                        {contracts
+                          .filter(c => {
+                            if (editingPayment && c.id === editingPayment.contractId) return true;
+                            if (formData.propertyId && c.propertyId !== formData.propertyId) return false;
+                            return c.status === 'ativo';
+                          })
+                          .map(c => {
+                            const tenant = clients.find(cl => cl.id === c.tenantId);
+                            const property = properties.find(p => p.id === c.propertyId);
+                            return (
+                              <option key={c.id} value={c.id}>
+                                {tenant?.name} - {property?.address} ({formatCurrency(c.monthlyValue)})
+                              </option>
+                            );
+                          })}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-400">Imóvel</label>
+                      <select 
+                        className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={formData.propertyId}
+                        onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
+                        required
+                      >
+                        <option value="">Selecione um imóvel</option>
+                        {properties.map(p => (
+                          <option key={p.id} value={p.id}>{p.address}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
-                {formData.type === 'aluguel' ? (
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-400">Contrato</label>
-                    <select 
-                      className="w-full p-3 bg-slate-800 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={formData.contractId}
-                      onChange={(e) => {
-                        const contract = contracts.find(c => c.id === e.target.value);
-                        setFormData({ 
-                          ...formData, 
-                          contractId: e.target.value, 
-                          amount: contract?.monthlyValue || 0,
-                          propertyId: contract?.propertyId || formData.propertyId || ''
-                        });
-                      }}
-                      required={formData.type === 'aluguel'}
-                    >
-                      <option value="">Selecione um contrato</option>
-                      {contracts
-                        .filter(c => !formData.propertyId || c.propertyId === formData.propertyId)
-                        .map(c => {
-                          const tenant = clients.find(cl => cl.id === c.tenantId);
-                          const property = properties.find(p => p.id === c.propertyId);
-                          return (
-                            <option key={c.id} value={c.id}>{tenant?.name} - {property?.address}</option>
-                          );
-                        })}
-                    </select>
+                {formData.type === 'aluguel' && formData.contractId && (
+                  <div className="p-4 bg-blue-900/20 border border-blue-800 rounded-xl flex items-start gap-3">
+                    <div className="p-2 bg-blue-900/40 text-blue-400 rounded-lg shrink-0">
+                      <Home size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-blue-400 font-bold uppercase tracking-wider mb-0.5">Imóvel Vinculado</p>
+                      <p className="text-sm text-slate-100 font-medium">
+                        {properties.find(p => p.id === formData.propertyId)?.address}
+                      </p>
+                      <div className="flex gap-4 mt-2">
+                        <div>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold">Inquilino</p>
+                          <p className="text-xs text-slate-300">
+                            {clients.find(cl => cl.id === contracts.find(c => c.id === formData.contractId)?.tenantId)?.name}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold">Valor Mensal</p>
+                          <p className="text-xs text-slate-300">
+                            {formatCurrency(contracts.find(c => c.id === formData.contractId)?.monthlyValue || 0)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ) : (
+                )}
+                {formData.type === 'extra' && (
                   <div className="space-y-4">
                     <div className="space-y-1">
                       <label className="text-sm font-semibold text-slate-400">Descrição do Gasto</label>
@@ -866,6 +1071,31 @@ export const Payments: React.FC = () => {
           payments={payments.filter(p => p.propertyId === selectedPropertyForStatement.id)}
           contracts={contracts}
           clients={clients}
+        />
+      )}
+
+      {selectedPaymentForBoleto && (
+        <BoletoModal
+          isOpen={isBoletoModalOpen}
+          onClose={() => {
+            setIsBoletoModalOpen(false);
+            setSelectedPaymentForBoleto(null);
+          }}
+          payment={selectedPaymentForBoleto}
+          contract={contracts.find(c => c.id === selectedPaymentForBoleto.contractId)}
+          property={properties.find(p => p.id === selectedPaymentForBoleto.propertyId)}
+          tenant={clients.find(cl => {
+            if (selectedPaymentForBoleto.contractId) {
+              return cl.id === contracts.find(c => c.id === selectedPaymentForBoleto.contractId)?.tenantId;
+            }
+            return cl.id === contracts.find(c => c.propertyId === selectedPaymentForBoleto.propertyId && c.status === 'ativo')?.tenantId;
+          })}
+          owner={clients.find(cl => {
+            if (selectedPaymentForBoleto.contractId) {
+              return cl.id === contracts.find(c => c.id === selectedPaymentForBoleto.contractId)?.ownerId;
+            }
+            return cl.id === properties.find(p => p.id === selectedPaymentForBoleto.propertyId)?.ownerId;
+          })}
         />
       )}
     </div>
