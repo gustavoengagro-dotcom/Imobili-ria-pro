@@ -35,7 +35,7 @@ const DEFAULT_CLAUSES = [
   'CLÁUSULA SÉTIMA - DA CONSERVAÇÃO, REFORMAS E BENFEITORIAS NECESSÁRIAS\n7.1. Ao LOCATÁRIO recai a responsabilidade por zelar pela conservação, limpeza e segurança do imóvel.\n7.2 As benfeitorias necessárias introduzidas pelo LOCATÁRIO, ainda que não autorizadas pelo LOCADOR, bem como as úteis, desde que autorizadas, serão indenizáveis e permitem o exercício do direito de retenção. As benfeitorias voluptuárias não serão indenizáveis, podendo ser levantadas pelo LOCATÁRIO, finda a locação, desde que sua retirada não afete a estrutura e a substância do imóvel.\n7.3 O LOCATÁRIO está obrigado a devolver o imóvel em perfeitas condições de limpeza, conservação e pintura, quando finda ou rescindida esta avença, conforme constante no termo de vistoria em anexo.\n7.4 O LOCATÁRIO não poderá realizar obras que alterem ou modifiquem a estrutura do imóvel locado, sem prévia autorização por escrito. No caso de prévia autorização, as obras serão incorporadas ao imóvel, sem que caiba ao LOCATÁRIO qualquer indenização pelas obras ou retenção por benfeitorias.\n7.5 Cabe ao LOCATÁRIO verificar a voltagem e a capacidade de instalação elétrica existente no imóvel, sendo de sua exclusiva responsabilidade pelos danos e prejuízos que venham a ser causados em seus equipamentos elétrico-eletrônico por inadequação à voltagem e/ou capacidade instalada. Qualquer alteração da voltagem deverá de imediato ser comunicada ao LOCADOR, por escrito. Ao final da locação, antes de fazer a entrega das chaves, o LOCATÁRIO deverá proceder a mudança para a voltagem original.\n7.6 O LOCADOR deve responder pelos vícios ou defeitos anteriores à locação.\n7.7 O LOCATÁRIO(a) se compromete a manter o imóvel em boas condições de conservação e limpeza durante todo o período de locação.\n7.8 O LOCATÁRIO será cobrado um valor fixo de {MONTHLY_VALUE} para cobrir os custos de pintura, valor este que será pago ao LOCADOR no momento da entrega das chaves.\n7.9 O LOCATÁRIO(a) também é responsável por realizar todos os reparos necessários para devolver o imóvel nas mesmas condições in que o recebeu, salvo deteriorações decorrentes do uso normal.\n7.10 Em caso de não cumprimento das obrigações de reparo, o LOCADOR(a) poderá executar os serviços necessários e cobrar do LOCATÁRIO(a) os custos correspondentes, os quais deverão ser quitados em até 10 (dez) dias após a notificação.\nPARÁGRAFO ÚNICO: O LOCATÁRIO declara receber o imóvel em perfeito estado de conservação e perfeito funcionamento devendo observar o que consta no termo de vistoria, não respondendo por vícios ocultos ou anteriores à locação.',
   'CLÁUSULA OITAVA - DAS TAXAS E TRIBUTOS\n8.1 A partir da data da entrega das chaves, o LOCATÁRIO(a) se responsabiliza pela transferência e pagamento das contas de água e luz, assim como de quaisquer outros tributos e taxas incidentes sobre o imóvel.\n8.2 No ato da devolução do imóvel, o LOCATÁRIO(a) se compromete a apresentar os comprovantes de pagamento de todas as taxas e tributos durante o período de locação, garantindo que não há débitos pendentes relacionados ao imóvel.',
   'CLÁUSULA NONA - DOS SINISTROS\n9.1 No caso de sinistro do prédio, parcial ou total, que impossibilite a habitação do imóvel locado, o presente contrato estará rescindido, independentemente de aviso ou interpelação judicial ou extrajudicial.\n9.2 No caso de incêndio parcial, obrigando obras de reconstrução, o presente contrato terá suspensa a sua vigência, sendo devolvido ao LOCATÁRIO após a reconstrução, que ficará prorrogado pelo mesmo tempo de duração das obras de reconstrução.',
-  'CLÁUSULA DÉCIMA - DA SUBLOCAÇÃO\n10.1 É VEDADO ao LOCATÁRIO sublocar, transferir ou ceder o imóvel, sendo nulo de pleno direito qualquer ato praticado com este fim sem o consentimento prévio e por escrito do LOCADOR.',
+  'CLÁUSULA DÉCIMA - DA SUBLOCAÇÃO\n10.1 É VEDADO ao LOCATÁRIO sublocar, transferir ou ceder o imóvel, sendo nulo de pleno direito qualquer ato praticado com este fim sem o consentimento previdinte e por escrito do LOCADOR.',
   'CLÁUSULA DÉCIMA PRIMEIRA - DA DESAPROPRIAÇÃO\n11.1 Em caso de desapropriação total ou parcial do imóvel locado, ficará rescindido de pleno direito o presente contrato de locação, sendo passível de indenização as perdas e danos efetivamente demonstradas.',
   'CLÁUSULA DÉCIMA SEGUNDA - DOS CASOS DE FALECIMENTO\n12.1 Falecendo o LOCADOR, ficam os seus sucessores sub-rogados dos direitos do presente contrato, devendo o LOCATÁRIO seguir depositando o valor do aluguel em conta indicada pelo inventariante, após devidamente notificado.\n12.2 Falecendo o LOCATÁRIO, ficam os seus sucessores sub-rogados dos direitos do presente contrato, devendo decidir dentro de 30 dias da continuidade ou não da LOCAÇÃO. O locador deve ser notificado da morte do LOCATÁRIO e informado de quem será o novo sucessor.',
   'CLÁUSULA DÉCIMA TERCEIRA - DA ALIENAÇÃO DO IMÓVEL\n13.1 No caso de alienação do imóvel, o LOCATÁRIO terá direito de preferência, e se não utilizar-se dessa prerrogativa formalmente, o LOCADOR poderá dispor livremente do imóvel.',
@@ -44,6 +44,18 @@ const DEFAULT_CLAUSES = [
   'CLÁUSULA DÉCIMA SEXTA - DA RESCISÃO DO CONTRATO\n16.1 Em caso de rescisão antecipada do contrato pelo LOCATÁRIO(a), será devida uma multa proporcional ao tempo restante do contrato, correspondente a 3 (três) meses de aluguel.\n16.2 O cálculo da multa será feito da seguinte forma:\n* Multa total estipulada: 3 x {MONTHLY_VALUE}\n* Tempo total do contrato: 6 meses\n* Tempo restante até o término do contrato: (quantidade de meses restantes)\nMulta proporcional = (Tempo restante / Tempo total do contrato) x Multa total\n16.3 O LOCADOR(a) poderá rescindir o contrato antecipadamente em caso de inadimplemento de quaisquer das cláusulas ora estabelecidas, mediante notificação por escrito ao LOCATÁRIO(a) com antecedência mínima de 30 (trinta) dias.\n16.4 O LOCATÁRIO(a) se compromete a pagar a multa de rescisão proporcional no prazo de 10 (dez) dias após a formalização da rescisão contratual, juntamente com a entrega das chaves e dos comprovantes de pagamento de todas as taxas e tributos durante o período de locação.',
   'CLÁUSULA DÉCIMA SÉTIMA - DA OBSERVÂNCIA À LGPD\n17.1 O LOCATÁRIO declara expresso CONSENTIMENTO que o LOCADOR irá coletar, tratar e compartilhar os dados necessários ao cumprimento do contrato, nos termos do Art. 7º, inc. V da LGPD, os dados necessários para cumprimento de obrigações legais, nos termos do Art. 7º, inc. II da LGPD, bem como os dados, se necessários, para proteção ao crédito, conforme autorizado pelo Art. 7º, inc. X da LGPD.',
   'CLÁUSULA DÉCIMA OITAVA - FORO\n18.1 Fica eleito o foro da Comarca de Alto Araguaia , Estado de Mato Grosso , para dirimir quaisquer questões oriundas deste contrato, com exclusão de qualquer outro, por mais privilegiado que seja.\n18.2 E por estarem assim justos e contratados, assinam o presente contrato em 2 (duas) vias de igual teor.'
+];
+
+const CLAUSES_OPTION_2 = [
+  'CLÁUSULA PRIMEIRA - OBJETO\nO presente contrato tem por objeto a locação do imóvel situado em {ADDRESS}, para fins exclusivamente residenciais.',
+  'CLÁUSULA SEGUNDA - PRAZO\nA locação terá início em {START_DATE} e término em {END_DATE}, podendo ser prorrogada por acordo entre as partes.',
+  'CLÁUSULA TERCEIRA - VALOR E PAGAMENTO\nO aluguel mensal é de {MONTHLY_VALUE}, a ser pago até o dia 5 de cada mês via PIX para a chave {OWNER_CPF} ({OWNER_NAME}).',
+  'CLÁUSULA QUARTA - REAJUSTE\nO valor do aluguel será reajustado anualmente com base na variação do {ADJUSTMENT_INDEX}.',
+  'CLÁUSULA QUINTA - ENCARGOS\nAlém do aluguel, o LOCATÁRIO é responsável pelo pagamento de contas de energia, água e demais taxas incidentes sobre o imóvel.',
+  'CLÁUSULA SEXTA - CONSERVAÇÃO\nO LOCATÁRIO obriga-se a manter o imóvel em perfeitas condições de higiene e conservação, devolvendo-o no estado em que o recebeu.',
+  'CLÁUSULA SÉTIMA - MULTA POR ATRASO\nO atraso no pagamento do aluguel implicará em multa de {LATE_FEE}% sobre o valor devido.',
+  'CLÁUSULA OITAVA - RESCISÃO\nA rescisão antecipada por qualquer das partes sujeitará o infrator à multa de 3 (três) meses de aluguel, reduzida proporcionalmente ao tempo cumprido.',
+  'CLÁUSULA NONA - FORO\nAs partes elegem o foro da Comarca de Alto Araguaia-MT para dirimir controvérsias deste contrato.'
 ];
 
 export const Contracts: React.FC = () => {
@@ -716,8 +728,34 @@ export const Contracts: React.FC = () => {
 
                 {activeTab === 'clausulas' && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <h3 className="text-lg font-bold text-slate-100">Cláusulas do Contrato</h3>
+                      <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                        <button 
+                          type="button"
+                          onClick={() => setFormData({ ...formData, clauses: DEFAULT_CLAUSES })}
+                          className={cn(
+                            "px-4 py-1.5 rounded-lg text-xs font-bold transition-all",
+                            JSON.stringify(formData.clauses) === JSON.stringify(DEFAULT_CLAUSES) 
+                              ? "bg-blue-600 text-white shadow-lg" 
+                              : "text-slate-400 hover:text-slate-200"
+                          )}
+                        >
+                          Opção 1
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => setFormData({ ...formData, clauses: CLAUSES_OPTION_2 })}
+                          className={cn(
+                            "px-4 py-1.5 rounded-lg text-xs font-bold transition-all",
+                            JSON.stringify(formData.clauses) === JSON.stringify(CLAUSES_OPTION_2) 
+                              ? "bg-blue-600 text-white shadow-lg" 
+                              : "text-slate-400 hover:text-slate-200"
+                          )}
+                        >
+                          Opção 2
+                        </button>
+                      </div>
                       <button 
                         type="button"
                         onClick={() => setFormData({ ...formData, clauses: [...(formData.clauses || []), ''] })}
