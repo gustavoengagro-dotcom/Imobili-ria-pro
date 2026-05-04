@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   Clock
 } from 'lucide-react';
-import { formatCurrency, cn } from '../lib/utils';
+import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { 
   BarChart, 
   Bar, 
@@ -241,7 +241,7 @@ export const Dashboard: React.FC = () => {
                 <AlertCircle className="text-red-500" size={24} />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-red-400">Pagamento Atrasado</p>
-                  <p className="text-xs text-red-300/70">Contrato #{payment.contractId.slice(0, 8)} - Vencimento: {payment.dueDate}</p>
+                  <p className="text-xs text-red-300/70">Contrato #{payment.contractId.slice(0, 8)} - Vencimento: {formatDate(payment.dueDate)}</p>
                 </div>
                 <p className="text-sm font-bold text-red-400">{formatCurrency(payment.amount)}</p>
               </div>

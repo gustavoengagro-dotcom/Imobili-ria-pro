@@ -26,9 +26,10 @@ import {
   Download,
   Zap,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
-import { formatCurrency, formatDate, cn, toBase64 } from '../lib/utils';
+import { formatCurrency, formatDate, parseDate, cn, toBase64 } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../components/AuthGuard';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -62,7 +63,7 @@ export const Payments: React.FC = () => {
 
   const getSuggestedDueDate = (contract: Contract) => {
     const today = new Date();
-    const startDate = new Date(contract.startDate);
+    const startDate = parseDate(contract.startDate);
     const day = startDate.getDate();
     
     // Create a date for the current month/year with the same day
@@ -322,8 +323,8 @@ export const Payments: React.FC = () => {
         const alreadyExists = payments.some(p => 
           p.contractId === contract.id && 
           p.type === 'aluguel' &&
-          new Date(p.dueDate).getMonth() === currentMonth &&
-          new Date(p.dueDate).getFullYear() === currentYear
+          parseDate(p.dueDate).getMonth() === currentMonth &&
+          parseDate(p.dueDate).getFullYear() === currentYear
         );
         
         if (!alreadyExists) {
@@ -406,6 +407,12 @@ export const Payments: React.FC = () => {
   const getPropertyPayments = (propertyId: string) => {
     return payments.filter(p => p.propertyId === propertyId && (statusFilter === 'todos' || p.status === statusFilter));
   };
+
+  const orphanPayments = payments.filter(p => {
+    const propertyExists = properties.some(prop => prop.id === p.propertyId);
+    const matchesStatus = statusFilter === 'todos' || p.status === statusFilter;
+    return !propertyExists && matchesStatus;
+  });
 
   return (
     <div className="space-y-6">
@@ -618,7 +625,7 @@ export const Payments: React.FC = () => {
                               </td>
                             </tr>
                           ) : (
-                            propertyPayments.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()).map((payment) => (
+                            propertyPayments.sort((a, b) => parseDate(b.dueDate).getTime() - parseDate(a.dueDate).getTime()).map((payment) => (
                               <tr key={payment.id} className="hover:bg-slate-800/20 transition-colors">
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-3">
@@ -739,6 +746,84 @@ export const Payments: React.FC = () => {
             </div>
           );
         })}
+        
+        {orphanPayments.length > 0 && (
+          <div className="bg-red-900/10 rounded-2xl border border-red-900/30 overflow-hidden shadow-sm mt-8">
+            <div className="p-6 flex items-center justify-between bg-red-900/20">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-red-500/20 text-red-400 rounded-xl">
+                  <AlertCircle size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-red-400">Lançamentos sem Imóvel Vinculado</h3>
+                  <p className="text-sm text-red-300/60">
+                    Estes lançamentos não estão vinculados a nenhum imóvel cadastrado e podem estar causando divergências nos totais.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-red-900/10">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] font-bold text-red-400/80 uppercase tracking-widest">Descrição / ID</th>
+                    <th className="px-6 py-3 text-[10px] font-bold text-red-400/80 uppercase tracking-widest">Vencimento</th>
+                    <th className="px-6 py-3 text-[10px] font-bold text-red-400/80 uppercase tracking-widest">Valor</th>
+                    <th className="px-6 py-3 text-[10px] font-bold text-red-400/80 uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-3 text-[10px] font-bold text-red-400/80 uppercase tracking-widest text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-red-900/20">
+                  {orphanPayments.map((payment) => (
+                    <tr key={payment.id} className="hover:bg-red-900/10 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-red-200">
+                            {payment.type === 'aluguel' ? 'Aluguel' : (payment.description || 'Pagamento Extra')}
+                          </span>
+                          <span className="text-[10px] text-red-400/60 font-mono">ID: {payment.id}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-red-300/80">{formatDate(payment.dueDate)}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-bold text-red-200">{formatCurrency(payment.amount)}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-900/40 text-red-400">
+                          {payment.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {isAdmin && (
+                          <div className="flex items-center justify-end gap-1">
+                            <button 
+                              onClick={() => {
+                                setEditingPayment(payment);
+                                setFormData(payment);
+                                setIsModalOpen(true);
+                              }}
+                              className="p-1.5 text-red-400/60 hover:text-red-400 hover:bg-red-900/30 rounded-lg transition-colors"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(payment.id)}
+                              className="p-1.5 text-red-400/60 hover:text-red-400 hover:bg-red-900/30 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal */}

@@ -18,7 +18,7 @@ import {
   Camera,
   Trash
 } from 'lucide-react';
-import { formatCurrency, formatDate, cn, isValidCpfCnpj, toBase64 } from '../lib/utils';
+import { formatCurrency, formatDate, parseDate, cn, isValidCpfCnpj, toBase64 } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../components/AuthGuard';
 import { ConfirmModal } from '../components/ConfirmModal';

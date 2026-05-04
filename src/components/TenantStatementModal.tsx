@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Printer, Download, Share2, FileText, Camera, Home, User } from 'lucide-react';
 import { Payment, Property, Client, Contract } from '../types';
-import { formatCurrency, formatDate, cn } from '../lib/utils';
+import { formatCurrency, formatDate, parseDate, cn } from '../lib/utils';
 
 interface TenantStatementModalProps {
   isOpen: boolean;
@@ -37,7 +37,7 @@ export const TenantStatementModal: React.FC<TenantStatementModalProps> = ({
 
   const filteredPayments = useMemo(() => {
     return payments.filter(p => {
-      const pDate = new Date(p.dueDate);
+      const pDate = parseDate(p.dueDate);
       const [year, month] = selectedMonth.split('-');
       return pDate.getFullYear() === parseInt(year) && (pDate.getMonth() + 1) === parseInt(month);
     });
