@@ -49,7 +49,6 @@ export const Payments: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isClearPendingConfirmOpen, setIsClearPendingConfirmOpen] = useState(false);
-  const [isClearPaidConfirmOpen, setIsClearPaidConfirmOpen] = useState(false);
   const [isDeleteAllPendingConfirmOpen, setIsDeleteAllPendingConfirmOpen] = useState(false);
   const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
   const [isBoletoModalOpen, setIsBoletoModalOpen] = useState(false);
@@ -291,24 +290,6 @@ export const Payments: React.FC = () => {
     }
   };
 
-  const handleClearAllPaid = async () => {
-    if (!isAdmin) return;
-    try {
-      const batch = writeBatch(db);
-      const paidPayments = payments.filter(p => p.status === 'pago');
-      
-      paidPayments.forEach(payment => {
-        const paymentRef = doc(db, 'payments', payment.id);
-        batch.delete(paymentRef);
-      });
-      
-      await batch.commit();
-      setIsClearPaidConfirmOpen(false);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, 'payments/batch-clear-paid');
-    }
-  };
-
   const handleGenerateMonthlyPayments = async () => {
     if (!isAdmin) return;
     try {
@@ -422,16 +403,7 @@ export const Payments: React.FC = () => {
           <p className="text-sm text-slate-400">Controle de pagamentos por imóvel</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          {isAdmin && (
-            <button 
-              onClick={() => setIsClearPaidConfirmOpen(true)}
-              className="flex items-center gap-2 bg-slate-800 text-red-400 border border-red-900/30 px-4 py-3 rounded-xl font-semibold hover:bg-slate-700 transition-colors"
-              title="Limpar todos os registros de pagamentos já recebidos"
-            >
-              <Trash2 size={20} />
-              Zerar Recebidos
-            </button>
-          )}
+
           {isAdmin && (
             <button 
               onClick={handleGenerateMonthlyPayments}
@@ -1151,16 +1123,6 @@ export const Payments: React.FC = () => {
         title="Excluir Lançamento"
         message="Tem certeza que deseja excluir este lançamento financeiro? Esta ação não pode ser desfeita."
         confirmText="Excluir"
-        type="danger"
-      />
-
-      <ConfirmModal
-        isOpen={isClearPaidConfirmOpen}
-        onClose={() => setIsClearPaidConfirmOpen(false)}
-        onConfirm={handleClearAllPaid}
-        title="Zerar Total Recebido"
-        message={`Tem certeza que deseja apagar todos os ${payments.filter(p => p.status === 'pago').length} lançamentos recebidos? Isso irá zerar o contador de "Total Recebido" e o histórico desses pagamentos será removido.`}
-        confirmText="Zerar Recebidos"
         type="danger"
       />
 
