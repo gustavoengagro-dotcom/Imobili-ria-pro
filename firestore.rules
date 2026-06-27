@@ -150,6 +150,28 @@ service cloud.firestore {
              (!('createdAt' in data) || isValidDateString(data.createdAt));
     }
 
+    function isValidWaitingListEntry(data) {
+      return hasRequiredFields(['clientName', 'phone', 'propertyType', 'status', 'createdAt']) &&
+             data.clientName is string && data.clientName.size() > 0 && data.clientName.size() < 200 &&
+             data.phone is string && data.phone.size() > 0 && data.phone.size() < 30 &&
+             data.propertyType in ['casa', 'apartamento', 'terreno', 'comercial', 'qualquer'] &&
+             data.status in ['aguardando', 'atendido', 'cancelado'] &&
+             isValidDateString(data.createdAt) &&
+             (!('clientId' in data) || data.clientId is string) &&
+             (!('email' in data) || data.email == null || data.email == "" || isValidEmail(data.email)) &&
+             (!('minPrice' in data) || data.minPrice == null || data.minPrice is number) &&
+             (!('maxPrice' in data) || data.maxPrice == null || data.maxPrice is number) &&
+             (!('minBedrooms' in data) || data.minBedrooms == null || data.minBedrooms is number) &&
+             (!('neighborhoods' in data) || data.neighborhoods is list) &&
+             (!('observations' in data) || data.observations is string) &&
+             (!('targetPropertyId' in data) || data.targetPropertyId == null || data.targetPropertyId == "" || data.targetPropertyId is string) &&
+             (!('waitingReason' in data) || data.waitingReason == null || data.waitingReason == "" || data.waitingReason in ['busca', 'desocupacao']) &&
+             (!('visitDate' in data) || data.visitDate == null || data.visitDate == "" || data.visitDate is string) &&
+             (!('visitTime' in data) || data.visitTime == null || data.visitTime == "" || data.visitTime is string) &&
+             (!('visitPropertyId' in data) || data.visitPropertyId == null || data.visitPropertyId == "" || data.visitPropertyId is string) &&
+             (!('visitStatus' in data) || data.visitStatus == null || data.visitStatus == "" || data.visitStatus in ['agendado', 'realizado', 'cancelado']);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -190,6 +212,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAdmin() && isValidPayment(request.resource.data);
       allow update: if isAdmin() && isValidPayment(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /waiting_list/{entryId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidWaitingListEntry(request.resource.data);
+      allow update: if isAdmin() && isValidWaitingListEntry(request.resource.data);
       allow delete: if isAdmin();
     }
   }

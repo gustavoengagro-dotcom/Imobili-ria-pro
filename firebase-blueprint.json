@@ -89,6 +89,32 @@
         "displayName": { "type": "string", "description": "User display name." }
       },
       "required": ["email", "role"]
+    },
+    "WaitingListEntry": {
+      "title": "WaitingListEntry",
+      "description": "An entry representing a client on the waiting list looking for a property.",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string", "description": "Reference to the client (optional)." },
+        "clientName": { "type": "string", "description": "Name of the client." },
+        "phone": { "type": "string", "description": "Contact phone number." },
+        "email": { "type": "string", "description": "Contact email address (optional)." },
+        "propertyType": { "type": "string", "enum": ["casa", "apartamento", "terreno", "comercial", "qualquer"], "description": "Desired type of property." },
+        "minPrice": { "type": "number", "description": "Minimum desired price (optional)." },
+        "maxPrice": { "type": "number", "description": "Maximum desired price (optional)." },
+        "minBedrooms": { "type": "number", "description": "Minimum desired bedrooms (optional)." },
+        "neighborhoods": { "type": "array", "items": { "type": "string" }, "description": "Desired neighborhoods (optional)." },
+        "observations": { "type": "string", "description": "Observations and extra notes (optional)." },
+        "status": { "type": "string", "enum": ["aguardando", "atendido", "cancelado"], "description": "Current status of the request." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." },
+        "targetPropertyId": { "type": "string", "description": "ID of specific occupied property they are waiting for (optional)." },
+        "waitingReason": { "type": "string", "enum": ["busca", "desocupacao"], "description": "Reason for waiting on the list (optional)." },
+        "visitDate": { "type": "string", "description": "Scheduled date of the visit (optional)." },
+        "visitTime": { "type": "string", "description": "Scheduled time of the visit (optional)." },
+        "visitPropertyId": { "type": "string", "description": "ID of property scheduled for visit (optional)." },
+        "visitStatus": { "type": "string", "enum": ["agendado", "realizado", "cancelado"], "description": "Status of the scheduled visit (optional)." }
+      },
+      "required": ["clientName", "phone", "propertyType", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -96,6 +122,7 @@
     "/clients/{clientId}": { "schema": "Client", "description": "Collection of clients." },
     "/contracts/{contractId}": { "schema": "Contract", "description": "Collection of contracts." },
     "/payments/{paymentId}": { "schema": "Payment", "description": "Collection of payments." },
-    "/users/{userId}": { "schema": "UserProfile", "description": "Collection of user profiles." }
+    "/users/{userId}": { "schema": "UserProfile", "description": "Collection of user profiles." },
+    "/waiting_list/{entryId}": { "schema": "WaitingListEntry", "description": "Collection of waiting list entries." }
   }
 }

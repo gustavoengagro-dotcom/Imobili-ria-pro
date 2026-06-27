@@ -9,7 +9,8 @@ import {
   TrendingUp, 
   AlertCircle,
   CheckCircle2,
-  Clock
+  Clock,
+  ClipboardList
 } from 'lucide-react';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { 
@@ -47,6 +48,7 @@ export const Dashboard: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [waitingList, setWaitingList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -73,10 +75,17 @@ export const Dashboard: React.FC = () => {
 
     const unsubPayments = onSnapshot(collection(db, 'payments'), (s) => {
       setPayments(s.docs.map(d => ({ id: d.id, ...d.data() } as Payment)));
-      setLoading(false);
     }, (e) => {
       setLoading(false);
       handleFirestoreError(e, OperationType.LIST, 'payments');
+    });
+
+    const unsubWaitingList = onSnapshot(collection(db, 'waiting_list'), (s) => {
+      setWaitingList(s.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    }, (e) => {
+      setLoading(false);
+      handleFirestoreError(e, OperationType.LIST, 'waiting_list');
     });
 
     return () => {
@@ -84,6 +93,7 @@ export const Dashboard: React.FC = () => {
       unsubClients();
       unsubContracts();
       unsubPayments();
+      unsubWaitingList();
     };
   }, []);
 
@@ -127,7 +137,7 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard 
           icon={Building2} 
           label="Total de Imóveis" 
@@ -157,6 +167,12 @@ export const Dashboard: React.FC = () => {
           label="Receita Mensal" 
           value={formatCurrency(totalRevenue)} 
           color="bg-orange-900/20 text-orange-400" 
+        />
+        <StatCard 
+          icon={ClipboardList} 
+          label="Fila de Espera" 
+          value={waitingList.filter(e => e.status === 'aguardando').length} 
+          color="bg-yellow-900/20 text-yellow-500" 
         />
       </div>
 

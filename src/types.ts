@@ -94,3 +94,28 @@ export interface UserProfile {
   role: UserRole;
   displayName: string;
 }
+
+export type WaitingListStatus = 'aguardando' | 'atendido' | 'cancelado';
+
+export interface WaitingListEntry {
+  id: string;
+  clientId?: string;
+  clientName: string;
+  phone: string;
+  email?: string;
+  propertyType: PropertyType | 'qualquer';
+  minPrice?: number;
+  maxPrice?: number;
+  minBedrooms?: number;
+  neighborhoods?: string[];
+  observations?: string;
+  status: WaitingListStatus;
+  createdAt: string;
+  targetPropertyId?: string;
+  waitingReason?: 'busca' | 'desocupacao';
+  // Visit scheduling fields
+  visitDate?: string;
+  visitTime?: string;
+  visitPropertyId?: string;
+  visitStatus?: 'agendado' | 'realizado' | 'cancelado';
+}

@@ -8,6 +8,7 @@ import { Properties } from './pages/Properties';
 import { Clients } from './pages/Clients';
 import { Contracts } from './pages/Contracts';
 import { Payments } from './pages/Payments';
+import { WaitingList } from './pages/WaitingList';
 import { Recovery } from './pages/Recovery';
 import { Login } from './pages/Login';
 
@@ -55,6 +56,14 @@ export default function App() {
             <AuthGuard>
               <Layout>
                 <Payments />
+              </Layout>
+            </AuthGuard>
+          } />
+
+          <Route path="/waiting-list" element={
+            <AuthGuard>
+              <Layout>
+                <WaitingList />
               </Layout>
             </AuthGuard>
           } />

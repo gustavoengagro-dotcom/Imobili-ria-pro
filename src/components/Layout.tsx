@@ -11,7 +11,8 @@ import {
   Menu, 
   X,
   Building2,
-  UserCircle
+  UserCircle,
+  ClipboardList
 } from 'lucide-react';
 import { useAuth } from './AuthGuard';
 import { logout } from '../firebase';
@@ -58,6 +59,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     { to: '/clients', icon: Users, label: 'Clientes' },
     { to: '/contracts', icon: FileText, label: 'Contratos' },
     { to: '/payments', icon: CreditCard, label: 'Financeiro' },
+    { to: '/waiting-list', icon: ClipboardList, label: 'Lista de Espera' },
     ...(isAdmin ? [{ to: '/recovery', icon: Database, label: 'Recuperação' }] : []),
   ];
 
