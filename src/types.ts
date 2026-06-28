@@ -58,6 +58,8 @@ export interface Contract {
   monthlyValue: number;
   adjustmentIndex?: string;
   lateFee?: number;
+  paintCost?: number;
+  guaranteeValue?: number;
   status: ContractStatus;
   clauses?: string[];
   inspection?: InspectionItem[];

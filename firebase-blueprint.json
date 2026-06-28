@@ -55,6 +55,8 @@
         "monthlyValue": { "type": "number", "description": "Agreed monthly rent value." },
         "adjustmentIndex": { "type": "string", "description": "Index for annual rent adjustment (e.g., IGPM)." },
         "lateFee": { "type": "number", "description": "Percentage fee for late payments." },
+        "paintCost": { "type": "number", "description": "Cost of painting paid at key return." },
+        "guaranteeValue": { "type": "number", "description": "Value of security deposit or guarantee." },
         "status": { "type": "string", "enum": ["ativo", "encerrado", "cancelado"], "description": "Contract status." }
       },
       "required": ["propertyId", "tenantId", "ownerId", "startDate", "endDate", "monthlyValue", "status"]

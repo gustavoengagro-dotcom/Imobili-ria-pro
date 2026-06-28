@@ -123,7 +123,13 @@ service cloud.firestore {
              isValidDateString(data.startDate) &&
              isValidDateString(data.endDate) &&
              data.monthlyValue is number && data.monthlyValue >= 0 &&
-             data.status in ['ativo', 'encerrado', 'cancelado'];
+             data.status in ['ativo', 'encerrado', 'cancelado'] &&
+             (!('adjustmentIndex' in data) || data.adjustmentIndex is string) &&
+             (!('lateFee' in data) || data.lateFee is number) &&
+             (!('paintCost' in data) || data.paintCost is number) &&
+             (!('guaranteeValue' in data) || data.guaranteeValue is number) &&
+             (!('clauses' in data) || data.clauses is list) &&
+             (!('inspection' in data) || data.inspection is list);
     }
 
     function isValidPayment(data) {
